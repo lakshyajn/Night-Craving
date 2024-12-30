@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import Item from '@/models/Item';
+import dbConnect from '../../../../lib/db';
+import Item from '../../../../models/Item';
+import Section from '@/app/models/Section';
 
 export async function DELETE(request, context) {
   try {
