@@ -9,7 +9,7 @@ import logo from '../../public/logo.png';
 
 const validateForm = (formValues) => {
   const requiredFields = [
-    'firstName', 'lastName', 'phone', 'address', 
+    'firstName', 'lastName', 'Mobile_No', 'address', 
     'city', 'state', 'pinCode'
   ];
 
@@ -70,7 +70,7 @@ export default function CheckoutPage() {
   const [formValues, setFormValues] = useState({
     firstName: '',
     lastName: '',
-    phone: '',
+    Mobile_No: '',
     email: '',
     address: '',
     apartment: '',
@@ -119,7 +119,7 @@ export default function CheckoutPage() {
     const missingFields = validateForm(formValues);
 
     if (missingFields.length > 0) {
-      alert(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      alert(`Please fill in all required fields`);
       return;
     }
 
@@ -133,7 +133,7 @@ export default function CheckoutPage() {
       })),
       address: {
         name: `${formValues.firstName} ${formValues.lastName}`,
-        contactNo: formValues.phone,
+        contactNo: formValues.Mobile_No,
         line1: formValues.address,
         line2: formValues.apartment || '',
       },
@@ -143,7 +143,7 @@ export default function CheckoutPage() {
 
     // Generate WhatsApp message and link
     const message = createWhatsAppMessage(orderDetails);
-    const whatsappLink = generateWhatsAppLink(formValues.phone, message);
+    const whatsappLink = generateWhatsAppLink(formValues.Mobile_No, message);
 
     clearCart();
 
@@ -285,14 +285,14 @@ export default function CheckoutPage() {
           </div> */}
           
           <div className="mb-2">
-              <label htmlFor="phone" className="block text-gray-900 font-bold mb-2">
+              <label htmlFor="Mobile_No" className="block text-gray-900 font-bold mb-2">
                 Contact
               </label>
               <input
                 type="text"
-                id="phone"
+                id="Mobile_No"
                 required
-                value={formValues.phone}
+                value={formValues.Mobile_No}
                 onChange={handleInputChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
