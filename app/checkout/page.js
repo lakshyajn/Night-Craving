@@ -74,9 +74,9 @@ export default function CheckoutPage() {
     email: '',
     address: '',
     apartment: '',
-    city: '',
+    city: 'Bhilwara',
     state: 'Rajasthan',
-    pinCode: '',
+    pinCode: '311001',
     country: 'India',
     subscribe: false
   });
@@ -271,22 +271,9 @@ export default function CheckoutPage() {
       <div className="mt-4 items-center justify-center">
         <h2 className="text-xl font-bold mb-2">Contact Information</h2>
         <div className="p-4 rounded-md">
-          {/* Email Section */}
-          <div className="mb-2 mt-1">
-            <label htmlFor="email" className="block text-gray-700 font-bold mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={formValues.email}
-              onChange={handleInputChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            />
-          </div>
 
-          {/* Subscription Checkbox */}
-          <div className="mb-2 mt-4">
+          {/* Subscription Checkbox
+          <div className="mb-2 mt-2">
             <input
               type="checkbox"
               id="subscribe"
@@ -295,41 +282,43 @@ export default function CheckoutPage() {
             <label htmlFor="subscribe" className="text-gray-700 font-bold mb-2">
               I would like to receive exclusive emails with discounts and product information
             </label>
-          </div>
+          </div> */}
+          
+          <div className="mb-2">
+              <label htmlFor="phone" className="block text-gray-900 font-bold mb-2">
+                Contact
+              </label>
+              <input
+                type="text"
+                id="phone"
+                required
+                value={formValues.phone}
+                onChange={handleInputChange}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
+              />
+            </div>
 
           {/* Shipping Address Form */}
-          <div className="rounded-md">
+          <div className="rounded-md mt-4">
             <div className="text-xl font-bold mb-2">Shipping Address</div>
-
-            {/* Country Dropdown */}
-            <div className="">
-              <label htmlFor="country" className="block text-gray-800 font-bold mb-2">
-                Country/Region
-              </label>
-              <select
-                id="country"
-                className="mb-2 shadow appearance-none border rounded w-full py-2 px-3 text-gray-800 leading-tight focus:outline-none focus:shadow-outline"
-              >
-                <option value="India">India</option>
-              </select>
-            </div>
 
             {/* Name Inputs */}
             <div className="mb-2">
-              <label htmlFor="firstName" className="block text-gray-800 font-bold mb-2">
+              <label htmlFor="firstName" className="block text-gray-900 font-bold mb-2">
                 First Name
               </label>
               <input
                 type="text"
                 id="firstName"
+                required
                 value={formValues.firstName}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-800 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
 
             <div className="mb-2">
-              <label htmlFor="lastName" className="block text-gray-700 font-bold mb-2">
+              <label htmlFor="lastName" className="block text-gray-900 font-bold mb-2">
                 Last Name
               </label>
               <input
@@ -337,35 +326,25 @@ export default function CheckoutPage() {
                 id="lastName"
                 value={formValues.lastName}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
+          
             <div className="mb-2">
-              <label htmlFor="phone" className="block text-gray-700 font-bold mb-2">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                id="phone"
-                value={formValues.phone}
-                onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              />
-            </div>
-            <div className="mb-2">
-              <label htmlFor="address" className="block text-gray-700 font-bold mb-2">
+              <label htmlFor="address" className="block text-gray-900 font-bold mb-2">
                 Address
               </label>
               <input
                 type="text"
                 id="address"
+                required
                 value={formValues.address}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
             <div className="mb-2">
-              <label htmlFor="apartment" className="block text-gray-700 font-bold mb-2">
+              <label htmlFor="apartment" className="block text-gray-900 font-bold mb-2">
                 Apartment/Suite (Optional)
               </label>
               <input
@@ -373,11 +352,11 @@ export default function CheckoutPage() {
                 id="apartment"
                 value={formValues.apartment}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
             <div className="mb-2">
-              <label htmlFor="city" className="block text-gray-700 font-bold mb-2">
+              <label htmlFor="city" className="block text-gray-900 font-bold mb-2">
                 City
               </label>
               <input
@@ -385,11 +364,11 @@ export default function CheckoutPage() {
                 id="city"
                 value={formValues.city}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
             <div className="mb-2">
-              <label htmlFor="state" className="block text-gray-700 font-bold mb-2">
+              <label htmlFor="state" className="block text-gray-900 font-bold mb-2">
                 State
               </label>
               <input
@@ -397,11 +376,11 @@ export default function CheckoutPage() {
                 id="state"
                 value={formValues.state}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
             <div className="mb-2">
-              <label htmlFor="pinCode" className="block text-gray-700 font-bold mb-2">
+              <label htmlFor="pinCode" className="block text-gray-900 font-bold mb-2">
                 PIN Code
               </label>
               <input
@@ -409,8 +388,23 @@ export default function CheckoutPage() {
                 id="pinCode"
                 value={formValues.pinCode}
                 onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
+            </div>
+
+            {/* Country Dropdown */}
+            <div className="">
+              <label htmlFor="country" className="block text-gray-900 font-bold mb-2">
+                Country/Region
+              </label>
+              <input
+                id="country"
+                type='text'
+                value={formValues.country}
+                onChange={handleInputChange}
+                className="mb-2 shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
+              >
+              </input>
             </div>
 
           {/* Place Order Button */}
