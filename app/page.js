@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ItemCard from './components/menu/ItemCard';
 import SectionNav from './components/menu/SectionNav';
@@ -8,9 +8,11 @@ import { useCart } from './contexts/CartContext';
 import { IoCart } from 'react-icons/io5';
 import Button from './components/ui/Button';
 import Image from 'next/image';
-import logo from '../public/logo.png'
+import logo from '../public/logo.png';
+import LoadingSpinner from './components/ui/LoadingSpinner';
 import { useSync } from './contexts/SyncContext';
-
+import { useLocation } from './contexts/LocationContext';
+import { LocationPrompt } from './components/ui/LocationPrompt';
 
 export default function Home() {
   const [items, setItems] = useState([]);
@@ -21,55 +23,52 @@ export default function Home() {
   const memoizedSyncTrigger = useMemo(() => syncTrigger, [syncTrigger]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
+  const { showLocationPrompt } = useLocation();
 
   useEffect(() => {
-    setIsClient(true);
+    const initialize = async () => {
+      try {
+        setIsLoading(true);
+        
+        const [sectionsRes, itemsRes] = await Promise.all([
+          fetch('/api/sections', {
+            headers: { 'Cache-Control': 'no-store' },
+          }),
+          fetch('/api/items', {
+            headers: { 'Cache-Control': 'no-store' },
+          }),
+        ]);
 
-    const fetchData = async () => {
-      // Only fetch on client-side
-      if (typeof window !== 'undefined') {
-        try {
-          setIsLoading(true);
-          const [sectionsRes, itemsRes] = await Promise.all([
-            fetch('/api/sections'),
-            fetch('/api/items')
-          ]);
-
-          if (!sectionsRes.ok || !itemsRes.ok) {
-            throw new Error('Failed to fetch menu data');
-          }
-
-          const [sectionsData, itemsData] = await Promise.all([
-            sectionsRes.json(),
-            itemsRes.json()
-          ]);
-
-          // Extract section names and sort
-          const fetchedSections = sectionsData.sections
-            .map(section => section.name)
-            .sort();
-
-          setSections(fetchedSections);
-          setItems(itemsData.items || []);
-          
-          // Set initial active section to first section
-          if (fetchedSections.length > 0) {
-            setActiveSection(fetchedSections[0]);
-          }
-        } catch (err) {
-          console.error('Error fetching menu data:', err);
-          setError(err.message);
-        } finally {
-          setIsLoading(false);
+        if (!sectionsRes.ok || !itemsRes.ok) {
+          throw new Error('Failed to fetch menu data');
         }
+
+        const [sectionsData, itemsData] = await Promise.all([
+          sectionsRes.json(),
+          itemsRes.json(),
+        ]);
+
+        const fetchedSections = sectionsData.sections
+          .map((section) => section.name)
+          .sort();
+
+        setSections(fetchedSections);
+        setItems(itemsData.items || []);
+
+        if (fetchedSections.length > 0) {
+          setActiveSection(fetchedSections[0]);
+        }
+      } catch (err) {
+        console.error('Error initializing data:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchData();
-  }, [syncTrigger]);
+    initialize();
+  }, [memoizedSyncTrigger]);
 
-  // Memoized filtered items for performance
   const sectionItemsMap = useMemo(() => {
     return sections.reduce((acc, section) => {
       const sectionItems = items.filter(
@@ -80,7 +79,6 @@ export default function Home() {
     }, {});
   }, [sections, items]);
 
-  // Handle section selection with smooth scroll
   const handleSectionSelect = (section) => {
     setActiveSection(section);
     const sectionElement = document.getElementById(section);
@@ -92,52 +90,41 @@ export default function Home() {
     }
   };
 
-  // Prevent server-side rendering
-  if (!isClient) {
-    return null;
-  }
-
-  // Loading state
   if (isLoading) {
     return (
-      <div 
-        className="flex justify-center items-center min-h-screen"
-        suppressHydrationWarning
-      >
-        <span className="loading-spinner">Loading...</span>
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner className="loading-spinner">Loading...</LoadingSpinner>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div 
-        className="flex justify-center items-center min-h-screen text-red-500"
-        suppressHydrationWarning
-      >
+      <div className="flex justify-center items-center min-h-screen text-red-500">
         Error: {error}
       </div>
     );
   }
 
-  // Empty state
   if (sections.length === 0 || items.length === 0) {
     return (
-      <div 
-        className="flex justify-center items-center min-h-screen"
-        suppressHydrationWarning
-      >
+      <div className="flex justify-center items-center min-h-screen">
         No menu items available
       </div>
     );
   }
-  
+
   return (
     <div className="pb-20">
-    <div className="justify-center items-center m-auto relative w-50"><Image src={logo} alt="After 10"></Image></div>
-    <div className="justify-center items-center text-center px-0 py-8 m-auto justify-items-center text-nowrap bg-[#F5F5F5] text-xl text-[#333333] font-sans">Order Online</div>
-    <SectionNav
+      {showLocationPrompt && <LocationPrompt />}
+
+      <div className="justify-center items-center m-auto relative w-50">
+        <Image src={logo} alt="After 10" priority></Image>
+      </div>
+      <div className="justify-center items-center text-center px-0 py-8 m-auto justify-items-center text-nowrap bg-[#F5F5F5] text-xl text-[#333333] font-sans">
+        Order Online
+      </div>
+      <SectionNav
         sections={sections}
         activeSection={activeSection}
         onSectionSelect={handleSectionSelect}
@@ -146,24 +133,15 @@ export default function Home() {
       <div className="mt-8 container mx-auto px-4">
         {sections.map((section) => {
           const sectionItems = sectionItemsMap[section] || [];
-          
-          // Skip sections with no in-stock items
+
           if (sectionItems.length === 0) return null;
 
           return (
-            <div 
-              key={section} 
-              id={section} 
-              className="mb-8"
-            >
+            <div key={section} id={section} className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">{section}</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {sectionItems.map((item) => (
-                  <ItemCard 
-                    key={item._id} 
-                    item={item} 
-                    // Optional: pass additional props if needed
-                  />
+                  <ItemCard key={item._id} item={item} />
                 ))}
               </div>
             </div>
@@ -184,9 +162,7 @@ export default function Home() {
             <IoCart size={24} />
             <span>{cart.length} items</span>
           </Button>
-          <div className="text-lg font-semibold">
-            ₹{calculateTotal()}
-          </div>
+          <div className="text-lg font-semibold">₹{calculateTotal()}</div>
         </div>
       </motion.div>
 

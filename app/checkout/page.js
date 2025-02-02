@@ -1,4 +1,5 @@
 'use client';
+import dynamic from 'next/dynamic';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../contexts/CartContext';
@@ -6,15 +7,23 @@ import Image from 'next/image';
 import Button from '../components/ui/Button';
 import QuantityControl from '../components/ui/QuantityControl';
 import logo from '../../public/logo.png';
+import { useLocation } from '../contexts/LocationContext';
+import { LocationDisplay } from '../components/ui/LocationDisplay';
+import { LocationPrompt } from '../components/ui/LocationPrompt';
+
+const MapComponent = dynamic(() => import('../components/MapComponent'), {
+  ssr: false,
+  loading: () => <div>Loading map...</div>
+});
 
 const validateForm = (formValues) => {
   const requiredFields = [
-    'firstName', 'lastName', 'Mobile_No', 'address', 
+    'firstName', 'lastName', 'Mobile_No', 'address',
     'city', 'state', 'pinCode'
   ];
 
-  return requiredFields.filter(field => 
-    !formValues[field] || 
+  return requiredFields.filter(field =>
+    !formValues[field] ||
     (typeof formValues[field] === 'string' && formValues[field].trim() === '')
   );
 };
@@ -23,11 +32,11 @@ const createWhatsAppMessage = (orderDetails) => {
   const { userName, items, address, totalAmount, orderId } = orderDetails;
 
   const itemsDetail = items.map(item => {
-    const addonsText = item.selectedAddons?.length 
-      ? `\n    Add-ons: ${item.selectedAddons.map(addon => 
-          `${addon.name} (₹${addon.price})`).join(', ')}`
+    const addonsText = item.selectedAddons?.length
+      ? `\n    Add-ons: ${item.selectedAddons.map(addon =>
+        `${addon.name} (₹${addon.price})`).join(', ')}`
       : '';
-    
+
     return `*${item.name} x ${item.quantity}*${addonsText}`;
   }).join('\n\n');
 
@@ -52,6 +61,7 @@ ${address.name}
    ${address.line2 || ''}
     `.trim();
 
+
   return encodeURIComponent(message);
 };
 
@@ -66,6 +76,27 @@ export default function CheckoutPage() {
   } = useCart();
 
   const deliveryCharge = 0; // Fixed delivery charge
+  const totalAmount = useMemo(() => calculateTotal() + deliveryCharge, [cart, deliveryCharge]);
+  
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const {
+    location,
+    selectedLocation,
+    locationStatus,
+    setSelectedLocation,
+    requestLocation
+  } = useLocation();
+
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      await requestLocation(); // This will update both location and selectedLocation
+      setMapOpen(false);
+    } catch (error) {
+      console.error('Error getting current location:', error);
+    }
+  };
 
   const [formValues, setFormValues] = useState({
     firstName: '',
@@ -81,8 +112,14 @@ export default function CheckoutPage() {
     subscribe: false
   });
 
-  // 2. Client-side rendering state (ALWAYS first)
-  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    if (location?.lat && location?.lon) {
+      setSelectedLocation(location);
+      // Optionally fetch address using reverse geocoding
+      fetchAddress(location);
+    }
+  }, [location]);
 
   // 3. Order ID generation (ALWAYS called)
   const orderId = useMemo(() => {
@@ -100,13 +137,76 @@ export default function CheckoutPage() {
 
   // 5. Redirect and client-side check effect
   useEffect(() => {
-    setIsClient(true);
 
     if (cart.length === 0) {
       router.push('/');
     }
   }, [cart.length, router]);
 
+  const fetchAddress = async (latitude, longitude) => {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
+  
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+  
+      if (data.address) {
+        const { road, neighbourhood, city, state, country } = data.address;
+  
+        // Format a user-friendly address
+        return `${road || ''}, ${neighbourhood || ''}, ${city || ''}, ${state || ''}, ${country || ''}`.trim();
+      }
+  
+      return 'Address not found'; // Fallback if reverse geocoding fails
+    } catch (error) {
+      console.error('Error fetching address:', error);
+      return 'Error fetching address';
+    }
+  };
+  
+  const [orderDetails, setOrderDetails] = useState({
+    address: {
+      line1: '',
+      line2: '',
+      contactNo: '',
+      coordinates: null
+    }
+  });
+
+  const handleSetThisAddress = async () => {
+    if (!selectedLocation) {
+      alert('Please select a location.');
+      return;
+    }
+
+    const { lat, lng } = selectedLocation;
+    
+    try {
+      const userFriendlyAddress = await fetchAddress(lat, lng);
+      
+      setOrderDetails(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          line1: userFriendlyAddress,
+          line2: '',
+          coordinates: { lat, lng }
+        }
+      }));
+
+      setFormValues(prev => ({
+        ...prev,
+        address: userFriendlyAddress
+      }));
+
+      alert('Address set successfully.');
+      setMapOpen(false);
+    } catch (error) {
+      console.error('Error setting address:', error);
+      alert('Error setting address. Please try again.');
+    }
+  };
+  
   // 6. WhatsApp link generation (ALWAYS defined)
   const generateWhatsAppLink = useCallback((phoneNumber, message) => {
     const formattedPhoneNumber = `91${phoneNumber}`;
@@ -118,7 +218,7 @@ export default function CheckoutPage() {
     // Validate form
     const missingFields = validateForm(formValues);
 
-    if (missingFields.length > 0) {
+    if (missingFields.length > 1) {
       alert(`Please fill in all required fields`);
       return;
     }
@@ -137,7 +237,7 @@ export default function CheckoutPage() {
         line1: formValues.address,
         line2: formValues.apartment || '',
       },
-      totalAmount: calculateTotal(),
+      totalAmount,
       orderId: orderId
     };
 
@@ -151,26 +251,27 @@ export default function CheckoutPage() {
     window.open(whatsappLink, '_blank');
 
     router.push('/');
-    
+
   }, [
-    formValues, 
-    cart, 
-    calculateTotal, 
-    orderId, 
+    formValues,
+    cart,
+    calculateTotal,
+    orderId,
     generateWhatsAppLink
   ]);
 
-  // 8. Prevent server-side rendering AFTER all hooks
-  if (!isClient) {
-    return null;
-  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {!location && locationStatus !== "denied" && <LocationPrompt />}
+
       <div className="justify-center items-center m-auto relative w-50">
         <Image src={logo} alt="After 10" />
       </div>
-      <div className="justify-center items-center text-center px-0 py-8 m-auto justify-items-center text-nowrap bg-[#F5F5F5] text-xl text-[#333333] font-sans">Checkout</div>
+
+      <div className="text-center px-0 py-8 m-auto text-nowrap bg-[#F5F5F5] text-xl text-[#333333] font-sans">
+        Checkout
+      </div>
 
       <div className="grid gap-8 md:grid-cols-3">
         {/* Cart Items Section */}
@@ -179,18 +280,10 @@ export default function CheckoutPage() {
             <h2 className="text-xl font-semibold mb-4">Cart Items</h2>
             <div className="space-y-4">
               {cart.map((item, index) => (
-                <div
-                  key={`${item.id}-${index}`}
-                  className="flex items-start space-x-4 border-b pb-4"
-                >
+                <div key={`${item.id}-${index}`} className="flex items-start space-x-4 border-b pb-4">
                   {/* Item Image */}
                   <div className="relative w-20 h-20 flex-shrink-0">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover rounded-lg"
-                    />
+                    <Image src={item.image} alt={item.name} fill className="object-cover rounded-lg" />
                   </div>
 
                   {/* Item Details */}
@@ -221,7 +314,10 @@ export default function CheckoutPage() {
                   {/* Item Price and Remove */}
                   <div className="text-right">
                     <p className="font-medium">
-                      ₹{(item.price + (item.selectedAddons?.reduce((sum, addon) => sum + addon.price, 0) || 0)) * item.quantity}
+                      ₹
+                      {(item.price +
+                        (item.selectedAddons?.reduce((sum, addon) => sum + addon.price, 0) || 0)) *
+                        item.quantity}
                     </p>
                     <button
                       onClick={() => removeFromCart(item.id, item.selectedAddons)}
@@ -243,7 +339,7 @@ export default function CheckoutPage() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>₹{calculateTotal()}</span>
+                <span>₹{totalAmount}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery Charge</span>
@@ -252,15 +348,11 @@ export default function CheckoutPage() {
               <div className="border-t pt-2 mt-2">
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>
-                  <span>₹{calculateTotal() + deliveryCharge}</span>
+                  <span>₹{totalAmount + deliveryCharge}</span>
                 </div>
               </div>
             </div>
-            <Button
-              variant="secondary"
-              className="w-full mt-2"
-              onClick={() => router.push('/')}
-            >
+            <Button variant="secondary" className="w-full mt-2" onClick={() => router.push("/")}>
               Continue Shopping
             </Button>
           </div>
@@ -271,38 +363,23 @@ export default function CheckoutPage() {
       <div className="mt-4 items-center justify-center">
         <h2 className="text-xl font-bold mb-2">Contact Information</h2>
         <div className="p-4 rounded-md">
-
-          {/* Subscription Checkbox
-          <div className="mb-2 mt-2">
-            <input
-              type="checkbox"
-              id="subscribe"
-              className="mr-2"
-            />
-            <label htmlFor="subscribe" className="text-gray-700 font-bold mb-2">
-              I would like to receive exclusive emails with discounts and product information
-            </label>
-          </div> */}
-          
           <div className="mb-2">
-              <label htmlFor="Mobile_No" className="block text-gray-900 font-bold mb-2">
-                Contact
-              </label>
-              <input
-                type="text"
-                id="Mobile_No"
-                required
-                value={formValues.Mobile_No}
-                onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
-              />
-            </div>
+            <label htmlFor="Mobile_No" className="block text-gray-900 font-bold mb-2">
+              Contact
+            </label>
+            <input
+              type="text"
+              id="Mobile_No"
+              required
+              value={formValues.Mobile_No}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
 
-          {/* Shipping Address Form */}
+          {/* Shipping Address */}
           <div className="rounded-md mt-4">
             <div className="text-xl font-bold mb-2">Shipping Address</div>
-
-            {/* Name Inputs */}
             <div className="mb-2">
               <label htmlFor="firstName" className="block text-gray-900 font-bold mb-2">
                 First Name
@@ -329,23 +406,75 @@ export default function CheckoutPage() {
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
-          
-            <div className="mb-2">
-              <label htmlFor="address" className="block text-gray-900 font-bold mb-2">
-                Address
-              </label>
-              <input
-                type="text"
-                id="address"
-                required
-                value={formValues.address}
-                onChange={handleInputChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
-              />
+
+            {/* Address Input */}
+            <div className="mt-6 space-y-6">
+              <div>
+                <label htmlFor="address" className="block text-gray-700 font-bold mb-2">
+                  Address
+                </label>
+                <button
+                  onClick={() => setMapOpen(true)}
+                  className="w-full py-2 px-4 border rounded-lg bg-gray-100 hover:bg-gray-200 text-left"
+                >
+                  {formValues.address || "Select Address"}
+                </button>
+              </div>
             </div>
-            <div className="mb-2">
+          </div>
+        </div>
+
+        {/* Map Modal */}
+        {mapOpen && (
+          <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white w-full max-w-md rounded-lg shadow-lg relative flex flex-col h-[80vh] px-6 pb-8">
+              <button
+                onClick={() => setMapOpen(false)}
+                className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md"
+              >
+                ✕
+              </button>
+
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="text-center mb-4">
+                  <h3 className="text-lg font-semibold">Select Location</h3>
+                  <p className="text-sm text-gray-500">Drag the pin or tap to select location</p>
+                </div>
+
+                {/* Map Container */}
+                <div className="w-full h-[50vh] mb-6 rounded-lg border border-gray-300 overflow-hidden">
+                  <MapComponent
+                    userLocation={selectedLocation || location}
+                    onLocationSelect={setSelectedLocation}
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div className="space-y-4">
+                  <button
+                    onClick={handleUseCurrentLocation}
+                    className="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center transition-colors"
+                  >
+                    <span className="mr-2">📍</span> Use Current Location
+                  </button>
+                  <button
+                    onClick={handleSetThisAddress}
+                    className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                  >
+                    Set This Address
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Other address fields */}
+        {!mapOpen && (
+          <div className="px-6"> {/* Ensured consistent padding */}
+            <div className="mb-4">
               <label htmlFor="apartment" className="block text-gray-900 font-bold mb-2">
-                Apartment/Suite (Optional)
+                Apartment/Landmark
               </label>
               <input
                 type="text"
@@ -355,7 +484,7 @@ export default function CheckoutPage() {
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
-            <div className="mb-2">
+            <div className="mb-4">
               <label htmlFor="city" className="block text-gray-900 font-bold mb-2">
                 City
               </label>
@@ -367,7 +496,7 @@ export default function CheckoutPage() {
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
-            <div className="mb-2">
+            <div className="mb-4">
               <label htmlFor="state" className="block text-gray-900 font-bold mb-2">
                 State
               </label>
@@ -379,7 +508,7 @@ export default function CheckoutPage() {
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
               />
             </div>
-            <div className="mb-2">
+            <div className="mb-4">
               <label htmlFor="pinCode" className="block text-gray-900 font-bold mb-2">
                 PIN Code
               </label>
@@ -392,34 +521,34 @@ export default function CheckoutPage() {
               />
             </div>
 
-            {/* Country Dropdown */}
-            <div className="">
+            {/* Country Input */}
+            <div className="mb-4">
               <label htmlFor="country" className="block text-gray-900 font-bold mb-2">
                 Country/Region
               </label>
               <input
                 id="country"
-                type='text'
+                type="text"
                 value={formValues.country}
                 onChange={handleInputChange}
-                className="mb-2 shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
-              >
-              </input>
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline"
+              />
             </div>
 
-          {/* Place Order Button */}
-          <div className="mb-4 mt-8 flex justify-center items-center">
-            <Button
-              onClick={handlePlaceOrder}
-              className="w-full"
-              disabled={cart.length === 0}
-            >
-              Place Order
-            </Button>
+            {/* Place Order Button */}
+            <div className="mb-8 flex justify-center items-center">
+              <Button
+                onClick={handlePlaceOrder}
+                className="w-full"
+                disabled={cart.length === 0}
+              >
+                Place Order
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
+
       </div>
     </div>
-    </div >
   );
-}
+}  
