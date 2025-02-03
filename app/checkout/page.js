@@ -197,7 +197,7 @@ export default function CheckoutPage() {
         address: userAddress
       }));
   
-      alert('Address set successfully.');
+
       setMapOpen(false);
     } catch (error) {
       console.error('Error setting address:', error);
