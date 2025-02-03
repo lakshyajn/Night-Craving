@@ -84,19 +84,10 @@ export default function CheckoutPage() {
     location,
     selectedLocation,
     locationStatus,
+    address,
     setSelectedLocation,
     requestLocation
   } = useLocation();
-
-
-  const handleUseCurrentLocation = async () => {
-    try {
-      await requestLocation(); // This will update both location and selectedLocation
-      setMapOpen(false);
-    } catch (error) {
-      console.error('Error getting current location:', error);
-    }
-  };
 
   const [formValues, setFormValues] = useState({
     firstName: '',
@@ -144,20 +135,66 @@ export default function CheckoutPage() {
   }, [cart.length, router]);
 
   const fetchAddress = async (latitude, longitude) => {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&namedetails=1&extratags=1`;
   
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      });
       const data = await response.json();
   
       if (data.address) {
-        const { road, neighbourhood, city, state, country } = data.address;
+        const {
+          house_number,
+          road,
+          neighbourhood,
+          suburb,
+          city,
+          state,
+          country,
+          amenity,
+          shop,
+          building
+        } = data.address;
   
-        // Format a user-friendly address
-        return `${road || ''}, ${neighbourhood || ''}, ${city || ''}, ${state || ''}, ${country || ''}`.trim();
+        // Build address parts in order of specificity
+        const addressParts = [];
+  
+        // Add house number and building name if available
+        if (house_number) addressParts.push(house_number);
+        if (building && building !== house_number) addressParts.push(building);
+  
+        // Add road
+        if (road) addressParts.push(road);
+  
+        // Add nearby landmark or amenity
+        if (amenity || shop) {
+          const landmark = amenity || shop;
+          addressParts.push(`Near ${landmark}`);
+        }
+  
+        // Add neighborhood or suburb
+        if (neighbourhood || suburb) {
+          addressParts.push(neighbourhood || suburb);
+        }
+  
+        // Add city and state
+        if (city) addressParts.push(city);
+        if (state) addressParts.push(state);
+        if (country) addressParts.push(country);
+  
+        // Join all parts with commas and remove any extra spaces or commas
+        return addressParts
+          .filter(Boolean) // Remove empty values
+          .join(', ')
+          .replace(/,\s*,/g, ',') // Remove double commas
+          .replace(/^\s*,\s*|\s*,\s*$/g, '') // Remove leading/trailing commas
+          .trim();
       }
   
-      return 'Address not found'; // Fallback if reverse geocoding fails
+      return 'Address not found';
     } catch (error) {
       console.error('Error fetching address:', error);
       return 'Error fetching address';
@@ -172,33 +209,57 @@ export default function CheckoutPage() {
       coordinates: null
     }
   });
-
+  
+  const handleUseCurrentLocation = async () => {
+    try {
+      const result = await requestLocation(); // This will now update location, selectedLocation, and address
+      setMapOpen(false);
+      
+      // You can now use the address directly from the context
+      setOrderDetails(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          line1: address,
+          line2: '',
+          coordinates: { lat: result.location.lat, lng: result.location.lng }
+        }
+      }));
+  
+      setFormValues(prev => ({
+        ...prev,
+        address: address
+      }));
+    } catch (error) {
+      console.error('Error getting current location:', error);
+      alert('Error getting location. Please try again.');
+    }
+  };
+  
   const handleSetThisAddress = async () => {
     if (!selectedLocation) {
       alert('Please select a location.');
       return;
     }
-
-    const { lat, lng } = selectedLocation;
-    
+  
     try {
-      const userFriendlyAddress = await fetchAddress(lat, lng);
+      const userAddress = await setLocationWithAddress(selectedLocation);
       
       setOrderDetails(prev => ({
         ...prev,
         address: {
           ...prev.address,
-          line1: userFriendlyAddress,
+          line1: userAddress,
           line2: '',
-          coordinates: { lat, lng }
+          coordinates: selectedLocation
         }
       }));
-
+  
       setFormValues(prev => ({
         ...prev,
-        address: userFriendlyAddress
+        address: userAddress
       }));
-
+  
       alert('Address set successfully.');
       setMapOpen(false);
     } catch (error) {
