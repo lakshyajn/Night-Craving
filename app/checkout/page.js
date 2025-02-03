@@ -40,7 +40,7 @@ const createWhatsAppMessage = (orderDetails) => {
     return `*${item.name} x ${item.quantity}*${addonsText}`;
   }).join('\n\n');
 
-  const message = `
+  return `
 Hello ${userName}, Your order details:
 
 # After10-OID: ${orderId}
@@ -52,18 +52,16 @@ ${itemsDetail}
 💰 Subtotal: ₹${totalAmount}
 🚚 Delivery Charge: ₹0
 ---------------------------------
-💵 Grand Total: ₹${totalAmount + 0} INR
+💵 Grand Total: ₹${totalAmount} INR
 ---------------------------------
 Delivery Address:
 ${address.name}
 📱 ${address.contactNo}
 📍 ${address.line1}
    ${address.line2 || ''}
-    `.trim();
-
-
-  return encodeURIComponent(message);
+  `.trim();
 };
+
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -207,8 +205,8 @@ export default function CheckoutPage() {
   
   // 6. WhatsApp link generation (ALWAYS defined)
   const generateWhatsAppLink = useCallback((phoneNumber, message) => {
-    const formattedPhoneNumber = `91${phoneNumber}`;
-    return `https://wa.me/${formattedPhoneNumber}?text=${message}`;
+   // const formattedPhoneNumber = '917733875871';
+    return `https://wa.me/917733875871?text=${encodeURIComponent(message)}`;
   }, []);
 
   // 7. CRITICAL: Wrap complex logic in useCallback with ALL dependencies
@@ -244,7 +242,7 @@ export default function CheckoutPage() {
     const whatsappLink = generateWhatsAppLink(formValues.Mobile_No, message);
 
     clearCart();
-
+    //console.log(whatsappLink)
     // Open WhatsApp
     window.open(whatsappLink, '_blank');
 
