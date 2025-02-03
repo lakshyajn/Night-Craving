@@ -82,11 +82,15 @@ export default function CheckoutPage() {
   const [mapOpen, setMapOpen] = useState(false);
   const {
     location,
-    selectedLocation,
-    locationStatus,
-    address,
-    setSelectedLocation,
-    requestLocation
+      selectedLocation,
+      setSelectedLocation,
+      locationStatus,
+      isLoading,
+      requestLocation,
+      clearLocation,
+      address,
+      setLocationWithAddress,
+      fetchAddress
   } = useLocation();
 
   const [formValues, setFormValues] = useState({
@@ -133,73 +137,6 @@ export default function CheckoutPage() {
       router.push('/');
     }
   }, [cart.length, router]);
-
-  const fetchAddress = async (latitude, longitude) => {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&namedetails=1&extratags=1`;
-  
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'Accept-Language': 'en-US,en;q=0.9',
-        }
-      });
-      const data = await response.json();
-  
-      if (data.address) {
-        const {
-          house_number,
-          road,
-          neighbourhood,
-          suburb,
-          city,
-          state,
-          country,
-          amenity,
-          shop,
-          building
-        } = data.address;
-  
-        // Build address parts in order of specificity
-        const addressParts = [];
-  
-        // Add house number and building name if available
-        if (house_number) addressParts.push(house_number);
-        if (building && building !== house_number) addressParts.push(building);
-  
-        // Add road
-        if (road) addressParts.push(road);
-  
-        // Add nearby landmark or amenity
-        if (amenity || shop) {
-          const landmark = amenity || shop;
-          addressParts.push(`Near ${landmark}`);
-        }
-  
-        // Add neighborhood or suburb
-        if (neighbourhood || suburb) {
-          addressParts.push(neighbourhood || suburb);
-        }
-  
-        // Add city and state
-        if (city) addressParts.push(city);
-        if (state) addressParts.push(state);
-        if (country) addressParts.push(country);
-  
-        // Join all parts with commas and remove any extra spaces or commas
-        return addressParts
-          .filter(Boolean) // Remove empty values
-          .join(', ')
-          .replace(/,\s*,/g, ',') // Remove double commas
-          .replace(/^\s*,\s*|\s*,\s*$/g, '') // Remove leading/trailing commas
-          .trim();
-      }
-  
-      return 'Address not found';
-    } catch (error) {
-      console.error('Error fetching address:', error);
-      return 'Error fetching address';
-    }
-  };
   
   const [orderDetails, setOrderDetails] = useState({
     address: {
