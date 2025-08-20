@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { IoAdd } from 'react-icons/io5';
+import { IoAdd, IoCheckmarkCircle } from 'react-icons/io5';
 
 export default function ItemForm({ 
   initialData = null, 
@@ -17,6 +17,43 @@ export default function ItemForm({
     inStock: true,
     addons: [{ name: '', price: '' }]
   });
+
+  // Custom toast styles with bright green theme
+  const showSuccessToast = (message) => {
+    toast.success(message, {
+      duration: 3000,
+      position: 'top-right',
+      style: {
+        background: '#37EE00', // Bright Green
+        color: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 10px 15px -3px rgba(55, 238, 0, 0.3), 0 4px 6px -2px rgba(55, 238, 0, 0.2)',
+      },
+      iconTheme: {
+        primary: '#ffffff',
+        secondary: '#37EE00',
+      },
+    });
+  };
+
+  const showErrorToast = (message) => {
+    toast.error(message, {
+      duration: 4000,
+      position: 'top-right',
+      style: {
+        background: '#EF4444', // Red-500
+        color: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 10px 15px -3px rgba(239, 68, 68, 0.3), 0 4px 6px -2px rgba(239, 68, 68, 0.2)',
+      },
+    });
+  };
 
   // Populate form with initial data if editing
   useEffect(() => {
@@ -40,143 +77,104 @@ export default function ItemForm({
   // Handle image upload
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
-    
-    // Expanded file type validation
+    if (!file) return;
+
     const allowedTypes = [
-      'image/jpeg', 
-      'image/png', 
-      'image/gif', 
-      'image/webp', 
-      'image/svg+xml',
-      'image/bmp',
-      'image/tiff'
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 
+      'image/svg+xml', 'image/bmp', 'image/tiff'
     ];
-  
-    const maxSize = 10 * 1024 * 1024; // 10MB instead of 5MB
-  
-    // Soft validation with warning instead of hard rejection
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
     if (!allowedTypes.includes(file.type)) {
-      const confirmUpload = window.confirm(
-        `File type (${file.type}) is not typically used for images. Do you want to continue?`
-      );
-      
-      if (!confirmUpload) {
-        return;
-      }
+      if (!window.confirm(`File type (${file.type}) is not standard. Continue?`)) return;
     }
-  
     if (file.size > maxSize) {
-      const confirmLargeFile = window.confirm(
-        `The file is larger than 10MB. Large files may take longer to upload. Do you want to continue?`
-      );
-      
-      if (!confirmLargeFile) {
-        return;
-      }
+      if (!window.confirm(`File is >10MB. This may be slow. Continue?`)) return;
     }
-  
-    // Create a file reader to generate local preview
+
     const reader = new FileReader();
     reader.onloadend = () => {
-      // Set local preview
-      setFormData(prev => ({
-        ...prev,
-        imagePreview: reader.result
-      }));
+      setFormData(prev => ({ ...prev, imagePreview: reader.result }));
     };
     reader.readAsDataURL(file);
-  
-    // Cloudinary Upload with More Robust Configuration
+
     try {
-      // Cloudinary upload URL
       const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
       const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
       
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
-  
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      uploadFormData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
+
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, 
-        {
-          method: 'POST',
-          body: formData
-        }
+        { method: 'POST', body: uploadFormData }
       );
-  
+
       if (!response.ok) {
-        // Detailed error handling
         const errorData = await response.json();
         throw new Error(errorData.message || 'Upload failed');
       }
-  
+
       const data = await response.json();
-      
-      setFormData(prev => ({
-        ...prev,
-        image: data.secure_url
-      }));
-      
-      toast.success('Image uploaded successfully');
+      setFormData(prev => ({ ...prev, image: data.secure_url }));
+      showSuccessToast('📸 Image uploaded successfully!');
     } catch (error) {
-      setFormData(prev => ({
-        ...prev,
-        image: prev.imagePreview
-      }));
+      setFormData(prev => ({ ...prev, image: prev.imagePreview }));
+      showErrorToast('Failed to upload image. Please try again.');
     }
   };
 
   const handleAddonChange = (index, field, value) => {
     const newAddons = [...formData.addons];
     newAddons[index][field] = value;
-    setFormData(prev => ({
-      ...prev,
-      addons: newAddons
-    }));
+    setFormData(prev => ({ ...prev, addons: newAddons }));
   };
 
-  // Add new addon
   const addAddon = () => {
-    setFormData(prev => ({
-      ...prev,
-      addons: [...prev.addons, { name: '', price: '' }]
-    }));
+    setFormData(prev => ({ ...prev, addons: [...prev.addons, { name: '', price: '' }] }));
   };
 
-  // Remove addon
   const removeAddon = (index) => {
     const newAddons = formData.addons.filter((_, i) => i !== index);
-    setFormData(prev => ({
-      ...prev,
-      addons: newAddons
-    }));
+    setFormData(prev => ({ ...prev, addons: newAddons }));
   };
 
-  // Form submission handler
-  const handleSubmit = (e) => {
+  // CORRECTED SUBMISSION HANDLER
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation
     if (!formData.name || !formData.price || !formData.section) {
-      toast.error('Please fill in all required fields');
+      showErrorToast('Please fill in all required fields');
       return;
     }
 
-    // Remove addons with empty name and price
     const cleanedAddons = formData.addons.filter(
       addon => addon.name.trim() !== '' && addon.price !== ''
     );
 
-    // Prepare final form data
-    const submitData = {
-      ...formData,
-      price: parseFloat(formData.price),
+    // THE FIX: Destructure to remove the frontend-only 'imagePreview' property.
+    const { imagePreview, ...dataToSubmit } = formData;
+
+    const finalSubmitData = {
+      ...dataToSubmit,
+      price: parseFloat(dataToSubmit.price),
       addons: cleanedAddons.length > 0 ? cleanedAddons : null
     };
 
-    // Call parent submit handler
-    onSubmit(submitData);
+    try {
+      await onSubmit(finalSubmitData);
+      const successMessage = initialData 
+        ? '✅ Item updated successfully!' 
+        : '🎉 Item added successfully!';
+      showSuccessToast(successMessage);
+    } catch (error) {
+      const errorMessage = initialData
+        ? '❌ Failed to update item.'
+        : '❌ Failed to add item.';
+      showErrorToast(error.message || errorMessage);
+    }
   };
 
   return (
@@ -190,7 +188,7 @@ export default function ItemForm({
           name="section"
           value={formData.section}
           onChange={handleChange}
-          className="mt-2 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+          className="mt-2 p-2 block w-full rounded-md border-gray-300 shadow-sm"
           required
         >
           <option value="">Select a Section</option>
@@ -240,20 +238,20 @@ export default function ItemForm({
       {/* Image Upload */}
       <div>
         <label className="block text-l font-bold text-gray-900">
-          Item Image
+          Item Image (Optional)
         </label>
         <input
           type="file"
-          accept="image/jpeg,image/png,image/gif"
           onChange={handleImageUpload}
-          className="mt-2 p-2 block w-full"
+          className="mt-2 p-2 block w-full rounded-md"
         />
-        {formData.image && (
+        {(formData.imagePreview || formData.image) && (
           <div className="mt-2">
             <img
-              src={formData.image}
-              alt="Uploaded"
-              className="h-32 w-32 object-cover rounded-md"
+              src={formData.imagePreview || formData.image}
+              alt="Item Preview"
+              className="h-32 w-32 object-cover rounded-md border-2"
+              style={{ borderColor: '#37EE00' }}
             />
           </div>
         )}
@@ -270,6 +268,7 @@ export default function ItemForm({
             inStock: e.target.checked
           }))}
           className="mr-2"
+          style={{ accentColor: '#37EE00' }}
         />
         <label className="text-md font-bold text-gray-900">
           In Stock
@@ -296,37 +295,50 @@ export default function ItemForm({
               value={addon.price}
               onChange={(e) => handleAddonChange(index, 'price', e.target.value)}
               className="w-24 rounded-md border-gray-300 shadow-sm p-2"
-              min="0"// components/admin/ItemForm.js (continued)
-              />
-                <button
-                  type="button"
-                  onClick={() => removeAddon(index)}
-                  className="text-red-500 hover:text-red-700 p-2 bg"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            
-            {/* Add Addon Button */}
+              min="0"
+              step="0.01"
+            />
             <button
               type="button"
-              onClick={addAddon}
-              className="mt-2 text-blue-500 hover:text-blue-700 flex items-center"
+              onClick={() => removeAddon(index)}
+              className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-md transition-colors"
             >
-              <IoAdd className="mr-1" /> Add Addon
+              Remove
             </button>
           </div>
-    
-          {/* Submit Button */}
-          <div className="flex justify-end mt-4">
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-            >
-              {initialData ? 'Update Item' : 'Add Item'}
-            </button>
-          </div>
-        </form>
-      );
-    }
+        ))}
+        
+        <button
+          type="button"
+          onClick={addAddon}
+          className="mt-2 flex items-center hover:bg-opacity-10 p-2 rounded-md transition-colors"
+          style={{ color: '#37EE00' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(55, 238, 0, 0.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+        >
+          <IoAdd className="mr-1" /> Add Addon
+        </button>
+      </div>
+
+      {/* Submit Button */}
+      <div className="flex justify-end mt-4">
+        <button
+          type="submit"
+          className="text-white px-6 py-2 rounded-md transition-transform duration-200 font-medium shadow-sm flex items-center space-x-2"
+          style={{ backgroundColor: '#37EE00' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#2BC800';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#37EE00';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <IoCheckmarkCircle className="w-4 h-4" />
+          <span>{initialData ? 'Update Item' : 'Add Item'}</span>
+        </button>
+      </div>
+    </form>
+  );
+}

@@ -13,12 +13,15 @@ export default function ItemCard({ item }) {
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState([]);
   const { addToCart, cart, updateQuantity } = useCart();
+  const [addedAddons, setAddedAddons] = useState([]);
 
+  const matchingCartItems = cart.filter(cartItem => cartItem.id === item._id);
   const cartItem = cart.find(
-    cartItem => 
-      cartItem.id === item._id && 
-      JSON.stringify(cartItem.selectedAddons) === JSON.stringify(selectedAddons)
+    cartItem =>
+      cartItem.id === item._id &&
+      JSON.stringify(cartItem.selectedAddons) === JSON.stringify(addedAddons)
   );
+
 
   const handleAddToCart = () => {
     if (item.addons?.length > 0) {
@@ -32,11 +35,12 @@ export default function ItemCard({ item }) {
     addToCart(item, quantity, selectedAddons);
     setShowAddons(false);
     setQuantity(1);
+    setAddedAddons(selectedAddons);
     setSelectedAddons([]);
   };
 
   const toggleAddon = (addon) => {
-    setSelectedAddons(prev => 
+    setSelectedAddons(prev =>
       prev.includes(addon)
         ? prev.filter(a => a !== addon)
         : [...prev, addon]
@@ -62,14 +66,20 @@ export default function ItemCard({ item }) {
         <div className="flex-1">
           <h3 className="font-semibold font-md">{item.name}</h3>
           <p className="text-sm text-gray-900">₹{item.price}</p>
-          
+
           {cartItem ? (
-            <QuantityControl
-              quantity={cartItem.quantity}
-              onIncrease={() => updateQuantity(item._id, selectedAddons, cartItem.quantity + 1)}
-              onDecrease={() => updateQuantity(item._id, selectedAddons, cartItem.quantity - 1)}
-              size="sm"
-            />
+            <div className="mt-2 w-fit">
+              <QuantityControl
+                quantity={cartItem.quantity}
+                onIncrease={() =>
+                  updateQuantity(item._id, addedAddons, cartItem.quantity + 1)
+                }
+                onDecrease={() =>
+                  updateQuantity(item._id, addedAddons, cartItem.quantity - 1)
+                }
+                size="sm"
+              />
+            </div>
           ) : (
             <Button
               size="sm"
@@ -79,6 +89,7 @@ export default function ItemCard({ item }) {
               Add
             </Button>
           )}
+
         </div>
       </motion.div>
 
@@ -97,11 +108,13 @@ export default function ItemCard({ item }) {
               <h3 className="font-md font-semibold">{item.name}</h3>
               <p className="text-sm text-gray-900">₹{item.price}</p>
             </div>
-            <QuantityControl
-              quantity={quantity}
-              onIncrease={() => setQuantity(prev => prev + 1)}
-              onDecrease={() => setQuantity(prev => Math.max(1, prev - 1))}
-            />
+            <div className="mt-2 w-fit">
+              <QuantityControl
+                quantity={quantity}
+                onIncrease={() => setQuantity(prev => prev + 1)}
+                onDecrease={() => setQuantity(prev => Math.max(1, prev - 1))}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

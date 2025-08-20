@@ -1,12 +1,16 @@
 // app/lib/db.js
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env');
+  throw new Error('❌ Please define the MONGODB_URI environment variable inside .env.local');
 }
 
+// Global cache to prevent reinitialization during hot reloads (especially in dev)
 let cached = global.mongoose;
 
 if (!cached) {
@@ -14,26 +18,31 @@ if (!cached) {
 }
 
 async function dbConnect() {
-  if (cached.conn) {
-    return cached.conn;
-  }
+  if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      // Optional: useUnifiedTopology, useNewUrlParser if needed depending on Mongoose version
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    }).then(() => console.log('Connected successfully'))
-    .catch((err) => console.error('Connection error:', err));
+    cached.promise = mongoose
+      .connect(MONGODB_URI, opts)
+      .then((mongooseInstance) => {
+        console.log('✅ MongoDB connected successfully');
+        return mongooseInstance;
+      })
+      .catch((err) => {
+        console.error('❌ MongoDB connection error:', err.message);
+        throw err; // rethrow to trigger catch block below
+      });
   }
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (err) {
     cached.promise = null;
-    throw e;
+    throw err;
   }
 
   return cached.conn;

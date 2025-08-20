@@ -20,6 +20,43 @@ export default function AdminPage() {
   const { triggerSync = () => {} } = useSync() || {};
   const [error, setError] = useState(null);
 
+  // Custom toast styles with bright green theme
+  const showSuccessToast = (message) => {
+    toast.success(message, {
+      duration: 3000,
+      position: 'top-right',
+      style: {
+        background: '#37EE00', // Bright Green
+        color: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 10px 15px -3px rgba(55, 238, 0, 0.3), 0 4px 6px -2px rgba(55, 238, 0, 0.2)',
+      },
+      iconTheme: {
+        primary: '#ffffff',
+        secondary: '#37EE00',
+      },
+    });
+  };
+
+  const showErrorToast = (message) => {
+    toast.error(message, {
+      duration: 4000,
+      position: 'top-right',
+      style: {
+        background: '#EF4444', // Red-500
+        color: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 10px 15px -3px rgba(239, 68, 68, 0.3), 0 4px 6px -2px rgba(239, 68, 68, 0.2)',
+      },
+    });
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -49,7 +86,7 @@ export default function AdminPage() {
     } catch (err) {
       console.error('Failed to fetch data', err);
       setError(err.message);
-      toast.error('Failed to load sections and items');
+      showErrorToast('Failed to load sections and items');
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +96,6 @@ export default function AdminPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
 
   const handleAddSection = async (sectionData) => {
     try {
@@ -75,11 +107,11 @@ export default function AdminPage() {
       
       if (!response.ok) throw new Error('Failed to add section');
       
-      toast.success(`Section "${sectionData.name}" added successfully`);
+      showSuccessToast(`🎉 Section "${sectionData.name}" added successfully!`);
       fetchData();
     } catch (error) {
       console.error('Error adding section:', error);
-      toast.error(error.message || 'Failed to add section');
+      showErrorToast(error.message || 'Failed to add section');
     }
   };
 
@@ -112,17 +144,17 @@ export default function AdminPage() {
 
       triggerSync();
 
-      toast.success('Section deleted successfully');
+      showSuccessToast('🗑️ Section deleted successfully');
     } catch (error) {
       console.error('Delete section error:', error);
-      toast.error('Failed to delete section');
+      showErrorToast('Failed to delete section');
     }
   };
 
   // Validation helpers
   const validateSection = (sectionData) => {
     if (!sectionData.name || sectionData.name.trim() === '') {
-      toast.error('Section name cannot be empty');
+      showErrorToast('Section name cannot be empty');
       return false;
     }
     return true;
@@ -143,12 +175,12 @@ export default function AdminPage() {
     });
 
     if (missingFields.length > 0) {
-      toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      showErrorToast(`Please fill in all required fields: ${missingFields.join(', ')}`);
       return false;
     }
 
     if (parseFloat(itemData.price) <= 0) {
-      toast.error('Price must be a positive number');
+      showErrorToast('Price must be a positive number');
       return false;
     }
 
@@ -168,12 +200,12 @@ export default function AdminPage() {
       
       if (!response.ok) throw new Error('Failed to add item');
       
-      toast.success('Item added successfully');
+      showSuccessToast(`🎉 "${itemData.name}" added successfully!`);
       setShowItemForm(false);
       fetchData();
     } catch (error) {
       console.error('Error adding item:', error);
-      toast.error(error.message || 'Failed to add item');
+      showErrorToast(error.message || 'Failed to add item');
     } finally {
       setIsLoading(false);
     }
@@ -222,16 +254,16 @@ export default function AdminPage() {
       triggerSync();
 
       // Success toast
-      toast.success(
-        `Deleted section ${sectionName} and ${responseData.data.itemsDeletedCount} associated items`
+      showSuccessToast(
+        `🗑️ Deleted section ${sectionName} and ${responseData.data.itemsDeletedCount} associated items`
       );
     } catch (error) {
       console.error('Error deleting section:', error);
       
       if (error.name === 'AbortError') {
-        toast.error('Deletion timed out. Please try again.');
+        showErrorToast('Deletion timed out. Please try again.');
       } else {
-        toast.error(
+        showErrorToast(
           error.message || 
           'Failed to delete section. Please try again.'
         );
@@ -245,7 +277,7 @@ export default function AdminPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2" style={{ borderTopColor: '#37EE00' }}></div>
       </div>
     );
   }
@@ -260,13 +292,13 @@ export default function AdminPage() {
       
       if (!response.ok) throw new Error('Failed to update item');
       
-      toast.success('Item updated successfully');
+      showSuccessToast(`✅ "${itemData.name}" updated successfully!`);
       setShowItemForm(false);
       setEditingItem(null);
       fetchData();
     } catch (error) {
       console.error('Error updating item:', error);
-      toast.error('Failed to update item');
+      showErrorToast('Failed to update item');
     }
   };
 
@@ -291,10 +323,10 @@ export default function AdminPage() {
 
       triggerSync();
 
-      toast.success('Item deleted successfully');
+      showSuccessToast('🗑️ Item deleted successfully');
     } catch (error) {
       console.error('Delete item error:', error);
-      toast.error('Failed to delete item');
+      showErrorToast('Failed to delete item');
     }
   };
 
@@ -366,12 +398,22 @@ export default function AdminPage() {
                                     body: JSON.stringify({ inStock: !item.inStock })
                                   });
                                   if (!response.ok) throw new Error('Failed to update stock status');
+                                  showSuccessToast(`📦 Stock status updated for "${item.name}"`);
                                   fetchData();
                                 } catch (error) {
-                                  toast.error('Failed to update stock status');
+                                  showErrorToast('Failed to update stock status');
                                 }
                               }}
-                              className="mr-2"
+                              className="mr-2 text-gray-700"
+                              style={{
+                                accentColor: '#37EE00'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.outline = `2px solid rgba(55, 238, 0, 0.3)`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.outline = '';
+                              }}
                             />
                             <span className="text-sm text-gray-600">In Stock</span>
                           </div>

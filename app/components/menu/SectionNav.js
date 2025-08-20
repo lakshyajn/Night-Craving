@@ -18,7 +18,7 @@ export default function SectionNav({ sections, activeSection, onSectionSelect })
   return (
     <div 
       ref={scrollRef}
-      className="mt-2 left-0 right-0 bg-white z-10 border-b shadow-sm overflow-x-auto scrollbar-hide"
+      className="sticky top-0 z-40 bg-white border-b shadow-sm overflow-x-auto scrollbar-hide"
     >
       <div className="flex space-x-2 p-4 min-w-max">
         {sections.map((section) => (
