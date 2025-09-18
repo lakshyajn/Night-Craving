@@ -7,9 +7,10 @@ export default async function AdminPage() {
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
   const [sectionsRes, itemsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/sections`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/items`, { cache: "no-store" })
-  ]);
+  fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/sections`, { cache: "no-store" }),
+  fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/items`, { cache: "no-store" })
+]);
+
 
   if (!sectionsRes.ok || !itemsRes.ok) {
     throw new Error("Failed to fetch sections or items");
