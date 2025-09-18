@@ -9,10 +9,12 @@ const fetchAddress = async (latitude, longitude) => {
 
   try {
     const response = await fetch(url, {
-      headers: {
-        'Accept-Language': 'en-US,en;q=0.9',
-      }
-    });
+  headers: {
+    'Accept-Language': 'en-US,en;q=0.9',
+    'User-Agent': 'After10App/1.0 (lakshyajain0740@gmail.com)'
+  }
+});
+
     const data = await response.json();
 
     if (data.address) {

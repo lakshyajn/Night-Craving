@@ -8,19 +8,16 @@ export default function SectionForm({ onSubmit, existingSections = [] }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Trim and validate section name
+
     const trimmedName = sectionName.trim();
-    
-    // Check if section already exists
-    if (existingSections.some(section => 
+
+    if (existingSections.some(section =>
       section.name.toLowerCase() === trimmedName.toLowerCase()
     )) {
       toast.error('Section already exists');
       return;
     }
 
-    // Validate section name
     if (!trimmedName) {
       toast.error('Section name cannot be empty');
       return;
@@ -28,24 +25,27 @@ export default function SectionForm({ onSubmit, existingSections = [] }) {
 
     try {
       await onSubmit({ name: trimmedName });
-      setSectionName(''); // Clear input after successful submission
+      setSectionName('');
     } catch (error) {
       console.error('Error adding section:', error);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex space-x-2">
+    <form 
+      onSubmit={handleSubmit} 
+      className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 w-full"
+    >
       <input
         type="text"
         value={sectionName}
         onChange={(e) => setSectionName(e.target.value)}
         placeholder="Enter new section name"
-        className="flex-grow px-3 py-2 border rounded-md"
+        className="flex-grow px-3 py-2 border rounded-md w-full"
       />
       <Button
         type="submit" 
-        className="text-white px-4 py-2 rounded-md hover:bg-green-600"
+        className="text-white px-4 py-2 rounded-md hover:bg-green-600 w-full sm:w-auto"
       >
         Add Section
       </Button>

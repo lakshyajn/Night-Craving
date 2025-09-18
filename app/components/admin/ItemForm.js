@@ -1,8 +1,10 @@
-// components/admin/ItemForm.js
 'use client';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { IoAdd, IoCheckmarkCircle } from 'react-icons/io5';
+
+// Utility to generate a unique id for addons
+const uniqueId = () => Math.random().toString(36).substr(2, 9);
 
 export default function ItemForm({ 
   initialData = null, 
@@ -14,64 +16,38 @@ export default function ItemForm({
     price: '',
     section: '',
     image: null,
+    imagePreview: null,
     inStock: true,
-    addons: [{ name: '', price: '' }]
+    addons: [{ id: uniqueId(), name: '', price: '' }]
   });
 
-  // Custom toast styles with bright green theme
+  // Toast helpers
   const showSuccessToast = (message) => {
     toast.success(message, {
-      duration: 3000,
-      position: 'top-right',
-      style: {
-        background: '#37EE00', // Bright Green
-        color: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: '500',
-        boxShadow: '0 10px 15px -3px rgba(55, 238, 0, 0.3), 0 4px 6px -2px rgba(55, 238, 0, 0.2)',
-      },
-      iconTheme: {
-        primary: '#ffffff',
-        secondary: '#37EE00',
-      },
+      style: { background: '#37EE00', color: '#fff', borderRadius: '8px', fontWeight: 500 },
     });
   };
-
   const showErrorToast = (message) => {
     toast.error(message, {
-      duration: 4000,
-      position: 'top-right',
-      style: {
-        background: '#EF4444', // Red-500
-        color: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: '500',
-        boxShadow: '0 10px 15px -3px rgba(239, 68, 68, 0.3), 0 4px 6px -2px rgba(239, 68, 68, 0.2)',
-      },
+      style: { background: '#EF4444', color: '#fff', borderRadius: '8px', fontWeight: 500 },
     });
   };
 
-  // Populate form with initial data if editing
+  // Load initial data if editing
   useEffect(() => {
     if (initialData) {
       setFormData({
         ...initialData,
-        addons: initialData.addons || [{ name: '', price: '' }]
+        addons: initialData.addons?.map(a => ({ ...a, id: uniqueId() })) || [{ id: uniqueId(), name: '', price: '' }],
+        imagePreview: initialData.image || null,
       });
     }
   }, [initialData]);
 
-  // Handle general input changes
+  // General input change
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   // Handle image upload
@@ -79,264 +55,202 @@ export default function ItemForm({
     const file = e.target.files[0];
     if (!file) return;
 
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 
-      'image/svg+xml', 'image/bmp', 'image/tiff'
-    ];
-    const maxSize = 10 * 1024 * 1024; // 10MB
-
-    if (!allowedTypes.includes(file.type)) {
-      if (!window.confirm(`File type (${file.type}) is not standard. Continue?`)) return;
-    }
-    if (file.size > maxSize) {
-      if (!window.confirm(`File is >10MB. This may be slow. Continue?`)) return;
-    }
-
+    // preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setFormData(prev => ({ ...prev, imagePreview: reader.result }));
     };
     reader.readAsDataURL(file);
 
+    const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+      showErrorToast('No Cloudinary credentials found, using local preview only.');
+      return;
+    }
+
     try {
-      const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-      
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
       uploadFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      uploadFormData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
 
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, 
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: 'POST', body: uploadFormData }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
-      }
+      if (!response.ok) throw new Error('Upload failed');
 
       const data = await response.json();
       setFormData(prev => ({ ...prev, image: data.secure_url }));
       showSuccessToast('📸 Image uploaded successfully!');
-    } catch (error) {
-      setFormData(prev => ({ ...prev, image: prev.imagePreview }));
-      showErrorToast('Failed to upload image. Please try again.');
+    } catch (err) {
+      showErrorToast('Failed to upload image.');
     }
   };
 
-  const handleAddonChange = (index, field, value) => {
+  // Addons
+  const handleAddonChange = (i, field, value) => {
     const newAddons = [...formData.addons];
-    newAddons[index][field] = value;
+    newAddons[i][field] = value;
     setFormData(prev => ({ ...prev, addons: newAddons }));
   };
 
-  const addAddon = () => {
-    setFormData(prev => ({ ...prev, addons: [...prev.addons, { name: '', price: '' }] }));
-  };
+  const addAddon = () =>
+    setFormData(prev => ({ ...prev, addons: [...prev.addons, { id: uniqueId(), name: '', price: '' }] }));
 
-  const removeAddon = (index) => {
-    const newAddons = formData.addons.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, addons: newAddons }));
-  };
+  const removeAddon = (i) =>
+    setFormData(prev => ({ ...prev, addons: prev.addons.filter((_, idx) => idx !== i) }));
 
-  // CORRECTED SUBMISSION HANDLER
+  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.name || !formData.price || !formData.section) {
-      showErrorToast('Please fill in all required fields');
+      showErrorToast('Please fill all required fields');
       return;
     }
 
-    const cleanedAddons = formData.addons.filter(
-      addon => addon.name.trim() !== '' && addon.price !== ''
-    );
-
-    // THE FIX: Destructure to remove the frontend-only 'imagePreview' property.
+    const cleanedAddons = formData.addons.filter(a => a.name && a.price);
     const { imagePreview, ...dataToSubmit } = formData;
 
-    const finalSubmitData = {
-      ...dataToSubmit,
-      price: parseFloat(dataToSubmit.price),
-      addons: cleanedAddons.length > 0 ? cleanedAddons : null
-    };
-
     try {
-      await onSubmit(finalSubmitData);
-      const successMessage = initialData 
-        ? '✅ Item updated successfully!' 
-        : '🎉 Item added successfully!';
-      showSuccessToast(successMessage);
-    } catch (error) {
-      const errorMessage = initialData
-        ? '❌ Failed to update item.'
-        : '❌ Failed to add item.';
-      showErrorToast(error.message || errorMessage);
+      await onSubmit({
+        ...dataToSubmit,
+        price: parseFloat(dataToSubmit.price),
+        addons: cleanedAddons.length > 0 ? cleanedAddons : null,
+      });
+
+      showSuccessToast(initialData ? '✅ Item updated!' : '🎉 Item added!');
+    } catch (err) {
+      showErrorToast(err.message || '❌ Something went wrong');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Section Dropdown */}
+    <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-2xl mx-auto">
+      {/* Section */}
       <div>
-        <label className="block text-l font-bold text-gray-900">
-          Section
-        </label>
+        <label className="block font-semibold">Section</label>
         <select
           name="section"
           value={formData.section}
           onChange={handleChange}
-          className="mt-2 p-2 block w-full rounded-md border-gray-300 shadow-sm"
+          className="mt-2 w-full rounded-md border px-3 py-2"
           required
         >
           <option value="">Select a Section</option>
-          {sections.map((section) => (
-            <option 
-              key={section._id || section.name} 
-              value={section.name}
-            >
-              {section.name}
+          {sections.map(s => (
+            <option key={s._id} value={s.name}>
+              {s.name}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Name Input */}
-      <div>
-        <label className="block text-l font-bold text-gray-900">
-          Item Name
-        </label>
-        <input
-          type="text"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          className="mt-2 p-2 block w-full rounded-md border-gray-300 shadow-sm"
-          required
-        />
-      </div>
-
-      {/* Price Input */}
-      <div>
-        <label className="block text-l font-bold text-gray-900">
-          Price
-        </label>
-        <input
-          type="number"
-          name="price"
-          value={formData.price}
-          onChange={handleChange}
-          className="mt-2 p-2 block w-full rounded-md border-gray-300 shadow-sm"
-          min="0"
-          step="0.01"
-          required
-        />
+      {/* Name + Price */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block font-semibold">Item Name</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="mt-2 w-full rounded-md border px-3 py-2"
+            required
+          />
+        </div>
+        <div>
+          <label className="block font-semibold">Price</label>
+          <input
+            type="number"
+            name="price"
+            value={formData.price}
+            onChange={handleChange}
+            className="mt-2 w-full rounded-md border px-3 py-2"
+            min="0"
+            step="0.01"
+            required
+          />
+        </div>
       </div>
 
       {/* Image Upload */}
       <div>
-        <label className="block text-l font-bold text-gray-900">
-          Item Image (Optional)
-        </label>
-        <input
-          type="file"
-          onChange={handleImageUpload}
-          className="mt-2 p-2 block w-full rounded-md"
-        />
+        <label className="block font-semibold">Item Image (Optional)</label>
+        <input type="file" onChange={handleImageUpload} className="mt-2 w-full" />
         {(formData.imagePreview || formData.image) && (
-          <div className="mt-2">
+          <div className="mt-3">
             <img
               src={formData.imagePreview || formData.image}
-              alt="Item Preview"
-              className="h-32 w-32 object-cover rounded-md border-2"
-              style={{ borderColor: '#37EE00' }}
+              alt="Preview"
+              className="h-40 w-40 object-cover rounded-md border mx-auto sm:mx-0"
             />
           </div>
         )}
       </div>
 
-      {/* In Stock Checkbox */}
+      {/* In Stock */}
       <div className="flex items-center">
         <input
           type="checkbox"
-          name="inStock"
           checked={formData.inStock}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            inStock: e.target.checked
-          }))}
+          onChange={(e) => setFormData(p => ({ ...p, inStock: e.target.checked }))}
           className="mr-2"
-          style={{ accentColor: '#37EE00' }}
         />
-        <label className="text-md font-bold text-gray-900">
-          In Stock
-        </label>
+        <span className="font-semibold">In Stock</span>
       </div>
 
-      {/* Addons Section */}
+      {/* Addons */}
       <div>
-        <label className="block text-l font-bold text-gray-900">
-          Addons (Optional)
-        </label>
-        {formData.addons.map((addon, index) => (
-          <div key={index} className="flex space-x-2 mt-2 p-2">
-            <input
-              type="text"
-              placeholder="Addon Name"
-              value={addon.name}
-              onChange={(e) => handleAddonChange(index, 'name', e.target.value)}
-              className="flex-grow rounded-md border-gray-300 shadow-sm p-2"
-            />
-            <input
-              type="number"
-              placeholder="Addon Price"
-              value={addon.price}
-              onChange={(e) => handleAddonChange(index, 'price', e.target.value)}
-              className="w-24 rounded-md border-gray-300 shadow-sm p-2"
-              min="0"
-              step="0.01"
-            />
-            <button
-              type="button"
-              onClick={() => removeAddon(index)}
-              className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-md transition-colors"
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        
+        <label className="block font-semibold">Addons (Optional)</label>
+        <div className="space-y-2">
+          {formData.addons.map((addon, i) => (
+            <div key={addon.id} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="Addon Name"
+                value={addon.name}
+                onChange={(e) => handleAddonChange(i, 'name', e.target.value)}
+                className="flex-1 rounded-md border px-3 py-2"
+              />
+              <input
+                type="number"
+                placeholder="Addon Price"
+                value={addon.price}
+                onChange={(e) => handleAddonChange(i, 'price', e.target.value)}
+                className="w-full sm:w-28 rounded-md border px-3 py-2"
+                min="0"
+                step="0.01"
+              />
+              <button
+                type="button"
+                onClick={() => removeAddon(i)}
+                className="text-red-500 hover:underline"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
         <button
           type="button"
           onClick={addAddon}
-          className="mt-2 flex items-center hover:bg-opacity-10 p-2 rounded-md transition-colors"
-          style={{ color: '#37EE00' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(55, 238, 0, 0.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+          className="mt-3 flex items-center text-green-600 hover:underline"
         >
           <IoAdd className="mr-1" /> Add Addon
         </button>
       </div>
 
-      {/* Submit Button */}
-      <div className="flex justify-end mt-4">
+      {/* Submit */}
+      <div className="flex justify-end">
         <button
           type="submit"
-          className="text-white px-6 py-2 rounded-md transition-transform duration-200 font-medium shadow-sm flex items-center space-x-2"
-          style={{ backgroundColor: '#37EE00' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#2BC800';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#37EE00';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
+          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md font-medium"
         >
-          <IoCheckmarkCircle className="w-4 h-4" />
-          <span>{initialData ? 'Update Item' : 'Add Item'}</span>
+          <IoCheckmarkCircle /> {initialData ? 'Update Item' : 'Add Item'}
         </button>
       </div>
     </form>
